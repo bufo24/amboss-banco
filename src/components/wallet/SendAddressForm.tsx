@@ -31,10 +31,17 @@ import {
   BroadcastLiquidTransactionMutationVariables,
 } from '@/graphql/mutations/__generated__/broadcastLiquidTransaction.generated';
 import {
+  GetPaySwapQuoteDocument,
+  GetPaySwapQuoteMutation,
+  GetPaySwapQuoteMutationVariables,
   PayLiquidAddressDocument,
   PayLiquidAddressMutation,
   PayLiquidAddressMutationVariables,
+  PayNetworkSwapDocument,
+  PayNetworkSwapMutation,
+  PayNetworkSwapMutationVariables,
 } from '@/graphql/mutations/__generated__/pay.generated';
+import { SwapQuote } from '@/graphql/types';
 import { useWalletInfo } from '@/hooks/wallet';
 import { cn } from '@/lib/utils';
 import { useKeyStore } from '@/stores/keys';
@@ -74,6 +81,22 @@ const formSchema = z
 const LBTC_ASSET_ID =
   '6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d';
 
+const tronAssets = [
+  { asset: 'USDT' }
+]
+
+const getAddressType = (address: string) => {
+  if (address.length == 0) return '';
+
+  if (address.startsWith('0x')) {
+    return 'ethereum'
+  }
+  if (address.startsWith('T')) {
+    return 'tron'
+  }
+  return 'btc';
+}
+
 export const SendAddressForm: FC<{
   walletId: string;
   accountId: string;
@@ -96,6 +119,8 @@ export const SendAddressForm: FC<{
   } = useWalletInfo(walletId);
 
   const [stateLoading, setStateLoading] = useState(false);
+  const [addressType, setAddressType] = useState('');
+  const [quote, setQuote] = useState<SwapQuote>();
 
   const masterKey = useKeyStore(s => s.masterKey);
 
@@ -110,15 +135,18 @@ export const SendAddressForm: FC<{
     },
   });
 
-  const [watchedAssetId, watchedSendAll, watchedAmount] = form.watch([
+  const [watchedAssetId, watchedSendAll, watchedAmount, watchedDestination] = form.watch([
     'assetId',
     'sendAllBtc',
     'amount',
+    'destination'
   ]);
 
   const currentAsset = getLiquidAsset(watchedAssetId);
 
   useEffect(() => {
+    setAddressType(getAddressType(watchedDestination));
+
     if (!watchedSendAll) return;
     if (!currentAsset) return;
 
@@ -129,7 +157,7 @@ export const SendAddressForm: FC<{
         currentAsset.asset_info.precision || 0
       )?.toString() || '0'
     );
-  }, [watchedSendAll, currentAsset, form]);
+  }, [watchedSendAll, currentAsset, form, watchedDestination]);
 
   useEffect(() => {
     if (watchedAssetId !== LBTC_ASSET_ID && !!watchedSendAll) {
@@ -240,60 +268,118 @@ export const SendAddressForm: FC<{
 
     setStateLoading(true);
 
-    if (values.sendAllBtc && values.assetId !== LBTC_ASSET_ID) {
-      toast({
-        variant: 'destructive',
-        title: 'Error Sending Money',
-        description: '"Send All" is only possible for BTC',
-      });
+    let base64 = '';
+    let walletAccountId = '';
+    let descriptor = '';
 
-      setStateLoading(false);
+    if (addressType !== 'btc' && !quote) {
+      const [quote, quoteError] = await toWithError(
+        client.mutate<GetPaySwapQuoteMutation, GetPaySwapQuoteMutationVariables>({
+          mutation: GetPaySwapQuoteDocument,
+          variables: {
+            swapInput: {
+              settle_amount: values.amount,
+              settle_coin: values.assetId,
+              settle_network: addressType
+            },
+            input: {
+              wallet_id: walletId
+            }
+          }
+        })
+      )
 
-      return;
+      if (!quoteError && quote.data) {
+        setQuote(quote.data?.pay.network_swap_quote);
+        setStateLoading(false);
+        return;
+      }
     }
 
-    const [result, error] = await toWithError(
-      client.mutate<
-        PayLiquidAddressMutation,
-        PayLiquidAddressMutationVariables
-      >({
-        mutation: PayLiquidAddressDocument,
-        variables: {
-          addressInput: {
-            send_all_lbtc: values.sendAllBtc || undefined,
-            fee_rate: Number(values.feeRate) * 1000,
-            recipients: [
-              {
-                address: values.destination,
-                amount: numberWithoutPrecision(
-                  values.amount,
-                  asset?.asset_info.precision || 0
-                ),
-                asset_id: values.assetId,
-              },
-            ],
+    if (quote) {
+      const [result, error] = await toWithError(
+        client.mutate<
+          PayNetworkSwapMutation,
+          PayNetworkSwapMutationVariables
+        >({
+          mutation: PayNetworkSwapDocument,
+          variables: {
+            payInput: {
+              wallet_id: walletId,
+            },
+            swapInput: {
+              quote_id: quote.id,
+              settle_address: values.destination
+            }
+          }
+        })
+      );
+
+      if (result?.data && !error) {
+        base64 = result.data?.pay.network_swap.base_64;
+        walletAccountId = result.data?.pay.network_swap.wallet_account.id;
+        descriptor = result.data?.pay.network_swap.wallet_account.descriptor;
+      }
+    } else {
+      if (values.sendAllBtc && values.assetId !== LBTC_ASSET_ID) {
+        toast({
+          variant: 'destructive',
+          title: 'Error Sending Money',
+          description: '"Send All" is only possible for BTC',
+        });
+
+        setStateLoading(false);
+
+        return;
+      }
+
+      const [result, error] = await toWithError(
+        client.mutate<
+          PayLiquidAddressMutation,
+          PayLiquidAddressMutationVariables
+        >({
+          mutation: PayLiquidAddressDocument,
+          variables: {
+            addressInput: {
+              send_all_lbtc: values.sendAllBtc || undefined,
+              fee_rate: Number(values.feeRate) * 1000,
+              recipients: [
+                {
+                  address: values.destination,
+                  amount: numberWithoutPrecision(
+                    values.amount,
+                    asset?.asset_info.precision || 0
+                  ),
+                  asset_id: values.assetId,
+                },
+              ],
+            },
+            payInput: {
+              account_id: accountId,
+            },
           },
-          payInput: {
-            account_id: accountId,
-          },
-        },
-      })
-    );
+        })
+      );
 
-    if (error) {
-      const messages = handleApolloError(error as ApolloError);
+      if (error || !result.data) {
+        const messages = handleApolloError(error as ApolloError);
 
-      toast({
-        variant: 'destructive',
-        title: 'Error Sending Money',
-        description: messages.join(', '),
-      });
+        toast({
+          variant: 'destructive',
+          title: 'Error Sending Money',
+          description: messages.join(', '),
+        });
 
-      setStateLoading(false);
-      return;
+        setStateLoading(false);
+        return;
+      }
+
+      base64 = result.data?.pay.liquid_address.base_64;
+      walletAccountId = result.data?.pay.liquid_address.wallet_account.id;
+      descriptor = result.data?.pay.liquid_address.wallet_account.descriptor;
+
     }
-
-    if (!result.data?.pay.liquid_address || !protected_mnemonic || !masterKey) {
+    if (!base64 || !walletAccountId || !protected_mnemonic || !masterKey) {
       setStateLoading(false);
       return;
     }
@@ -306,10 +392,10 @@ export const SendAddressForm: FC<{
     const message: CryptoWorkerMessage = {
       type: 'signPset',
       payload: {
-        wallet_account_id: result.data.pay.liquid_address.wallet_account.id,
+        wallet_account_id: walletAccountId,
         mnemonic: protected_mnemonic,
-        descriptor: result.data.pay.liquid_address.wallet_account.descriptor,
-        pset: result.data.pay.liquid_address.base_64,
+        descriptor,
+        pset: base64,
         masterKey,
       },
     };
@@ -343,7 +429,7 @@ export const SendAddressForm: FC<{
               )}
             />
 
-            <div className={cn(watchedSendAll ? '' : 'grid grid-cols-2 gap-4')}>
+            {addressType == 'btc' ? <> <div className={cn(watchedSendAll ? '' : 'grid grid-cols-2 gap-4')}>
               {watchedSendAll ? null : (
                 <FormField
                   control={form.control}
@@ -392,7 +478,59 @@ export const SendAddressForm: FC<{
                   </FormItem>
                 )}
               />
-            </div>
+            </div> </> : <></>}
+
+            {addressType == 'tron' ? <> <div className={cn(watchedSendAll ? '' : 'grid grid-cols-2 gap-4')}>
+              {watchedSendAll ? null : (
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="1000"
+                          autoComplete="off"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <FormField
+                control={form.control}
+                name="assetId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Asset</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose which asset you want to send." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {tronAssets.map(a => (
+                          <SelectItem key={a.asset} value={a.asset}>
+                            {a.asset}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div> </> : <></>}
+
 
             {currentAsset ? (
               <>
@@ -456,19 +594,30 @@ export const SendAddressForm: FC<{
               />
             ) : null}
 
-            <FormField
-              control={form.control}
-              name="feeRate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fee Rate</FormLabel>
-                  <FormControl>
-                    <Input type="number" autoComplete="off" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {addressType == 'btc' ? (
+              <FormField
+                control={form.control}
+                name="feeRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fee Rate</FormLabel>
+                    <FormControl>
+                      <Input type="number" autoComplete="off" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              !quote ? <Button>Get Quote</Button> : (
+                <><div>
+                  <h3>Send Details:</h3>
+                  <h1>Rate: {quote.rate}</h1>
+                  <h1>Send: {quote.deposit_amount} {quote.deposit_coin}</h1>
+                </div>
+                  <Button>Send</Button></>
+              )
+            )}
 
             <div className="flex items-center justify-center pt-2">
               {masterKey ? (

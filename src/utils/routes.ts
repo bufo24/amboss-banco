@@ -10,6 +10,13 @@ export const ROUTES = {
       settings: (id: string) => `/app/wallet/${id}/settings`,
       receive: (walletId: string, accountId: string) =>
         `/app/wallet/${walletId}/account/${accountId}/receive`,
+      receiveViaSwap: (
+        walletId: string,
+        accountId: string,
+        network: string,
+        coin: string
+      ) =>
+        `/app/wallet/${walletId}/account/${accountId}/receive?coin=${coin}&network=${network}`,
       send: {
         home: (walletId: string, accountId: string, assetId: string) =>
           `/app/wallet/${walletId}/account/${accountId}/send?assetId=${assetId}`,
@@ -17,6 +24,8 @@ export const ROUTES = {
           `/app/wallet/${walletId}/account/${accountId}/send/address?assetId=${assetId}`,
         invoice: (walletId: string, accountId: string, assetId: string) =>
           `/app/wallet/${walletId}/account/${accountId}/send/invoice?assetId=${assetId}`,
+        networkSwap: (walletId: string, accountId: string, network: string) =>
+          `/app/wallet/${walletId}/account/${accountId}/send/address?network=${network}`,
       },
     },
     contacts: {

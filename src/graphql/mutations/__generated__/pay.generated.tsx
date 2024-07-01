@@ -69,6 +69,52 @@ export type PayLightningInvoiceMutation = {
   };
 };
 
+export type PayNetworkSwapMutationVariables = Types.Exact<{
+  swapInput: Types.PayNetworkSwap;
+  payInput: Types.PayInput;
+}>;
+
+export type PayNetworkSwapMutation = {
+  __typename?: 'Mutation';
+  pay: {
+    __typename?: 'PayMutations';
+    network_swap: {
+      __typename?: 'CreateLiquidTransaction';
+      base_64: string;
+      wallet_account: {
+        __typename?: 'WalletAccount';
+        id: string;
+        descriptor: string;
+      };
+    };
+  };
+};
+
+export type GetPaySwapQuoteMutationVariables = Types.Exact<{
+  input: Types.PayInput;
+  swapInput: Types.SwapQuoteInput;
+}>;
+
+export type GetPaySwapQuoteMutation = {
+  __typename?: 'Mutation';
+  pay: {
+    __typename?: 'PayMutations';
+    network_swap_quote: {
+      __typename?: 'SwapQuote';
+      created_at: string;
+      deposit_amount: string;
+      deposit_coin: string;
+      deposit_network: string;
+      expires_at: string;
+      id: string;
+      rate: string;
+      settle_amount: string;
+      settle_coin: string;
+      settle_network: string;
+    };
+  };
+};
+
 export const PayLightningAddressDocument = gql`
   mutation PayLightningAddress(
     $addressInput: PayLnAddressInput!
@@ -248,4 +294,123 @@ export type PayLightningInvoiceMutationResult =
 export type PayLightningInvoiceMutationOptions = Apollo.BaseMutationOptions<
   PayLightningInvoiceMutation,
   PayLightningInvoiceMutationVariables
+>;
+export const PayNetworkSwapDocument = gql`
+  mutation PayNetworkSwap($swapInput: PayNetworkSwap!, $payInput: PayInput!) {
+    pay(input: $payInput) {
+      network_swap(input: $swapInput) {
+        wallet_account {
+          id
+          descriptor
+        }
+        base_64
+      }
+    }
+  }
+`;
+export type PayNetworkSwapMutationFn = Apollo.MutationFunction<
+  PayNetworkSwapMutation,
+  PayNetworkSwapMutationVariables
+>;
+
+/**
+ * __usePayNetworkSwapMutation__
+ *
+ * To run a mutation, you first call `usePayNetworkSwapMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `usePayNetworkSwapMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [payNetworkSwapMutation, { data, loading, error }] = usePayNetworkSwapMutation({
+ *   variables: {
+ *      swapInput: // value for 'swapInput'
+ *      payInput: // value for 'payInput'
+ *   },
+ * });
+ */
+export function usePayNetworkSwapMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    PayNetworkSwapMutation,
+    PayNetworkSwapMutationVariables
+  >
+) {
+  const options = { ...defaultOptions, ...baseOptions };
+  return Apollo.useMutation<
+    PayNetworkSwapMutation,
+    PayNetworkSwapMutationVariables
+  >(PayNetworkSwapDocument, options);
+}
+export type PayNetworkSwapMutationHookResult = ReturnType<
+  typeof usePayNetworkSwapMutation
+>;
+export type PayNetworkSwapMutationResult =
+  Apollo.MutationResult<PayNetworkSwapMutation>;
+export type PayNetworkSwapMutationOptions = Apollo.BaseMutationOptions<
+  PayNetworkSwapMutation,
+  PayNetworkSwapMutationVariables
+>;
+export const GetPaySwapQuoteDocument = gql`
+  mutation GetPaySwapQuote($input: PayInput!, $swapInput: SwapQuoteInput!) {
+    pay(input: $input) {
+      network_swap_quote(input: $swapInput) {
+        created_at
+        deposit_amount
+        deposit_coin
+        deposit_network
+        expires_at
+        id
+        rate
+        settle_amount
+        settle_coin
+        settle_network
+      }
+    }
+  }
+`;
+export type GetPaySwapQuoteMutationFn = Apollo.MutationFunction<
+  GetPaySwapQuoteMutation,
+  GetPaySwapQuoteMutationVariables
+>;
+
+/**
+ * __useGetPaySwapQuoteMutation__
+ *
+ * To run a mutation, you first call `useGetPaySwapQuoteMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useGetPaySwapQuoteMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [getPaySwapQuoteMutation, { data, loading, error }] = useGetPaySwapQuoteMutation({
+ *   variables: {
+ *      input: // value for 'input'
+ *      swapInput: // value for 'swapInput'
+ *   },
+ * });
+ */
+export function useGetPaySwapQuoteMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    GetPaySwapQuoteMutation,
+    GetPaySwapQuoteMutationVariables
+  >
+) {
+  const options = { ...defaultOptions, ...baseOptions };
+  return Apollo.useMutation<
+    GetPaySwapQuoteMutation,
+    GetPaySwapQuoteMutationVariables
+  >(GetPaySwapQuoteDocument, options);
+}
+export type GetPaySwapQuoteMutationHookResult = ReturnType<
+  typeof useGetPaySwapQuoteMutation
+>;
+export type GetPaySwapQuoteMutationResult =
+  Apollo.MutationResult<GetPaySwapQuoteMutation>;
+export type GetPaySwapQuoteMutationOptions = Apollo.BaseMutationOptions<
+  GetPaySwapQuoteMutation,
+  GetPaySwapQuoteMutationVariables
 >;

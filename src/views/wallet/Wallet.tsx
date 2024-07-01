@@ -1,5 +1,6 @@
 'use client';
 
+import { DropdownMenu, DropdownMenuContent,DropdownMenuLabel, DropdownMenuPortal, DropdownMenuTrigger } from '@radix-ui/react-dropdown-menu';
 import { sortBy } from 'lodash';
 import {
   ArrowDownToLine,
@@ -48,6 +49,22 @@ export type TransactionEntry = {
   unblinded_url: string;
   blinded_url: string;
 };
+
+const coins = [
+  {
+    coin: 'USDT',
+    network: 'tron'
+  },
+  {
+    coin: 'USDT',
+    network: 'ethereum'
+  }
+  ,
+  {
+    coin: 'eth',
+    network: 'ethereum'
+  }
+]
 
 const BalanceIcon: FC<{ ticker: string }> = ({ ticker }) => {
   const classname = 'h-4 w-4 text-muted-foreground';
@@ -99,6 +116,35 @@ const BalanceCard: FC<{
             Send
           </Link>
         </Button>
+      </CardFooter>
+      <CardFooter className="flex w-full gap-2">
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size={'sm'} className="w-full">
+                <ArrowDownToLine className="mr-2 h-4 w-4" />
+                Receive via Swap
+            </Button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuPortal>
+            <DropdownMenuContent className='w-100'>
+            {
+              coins.map(({coin, network}) => (
+                   <DropdownMenuLabel key={coin}>  
+                      <Link
+                        href={ROUTES.app.wallet.receiveViaSwap(walletId, accountId, network, coin)}
+                        className="flex px-4 m-2 bg-primary rounded"
+                      >
+                        {coin} - {network}
+                      </Link> 
+                    </DropdownMenuLabel>
+              ))}
+                  </DropdownMenuContent>
+
+          </DropdownMenuPortal>
+        </DropdownMenu>
+
       </CardFooter>
     </Card>
   );

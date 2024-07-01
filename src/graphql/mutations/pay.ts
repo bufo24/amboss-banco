@@ -50,3 +50,36 @@ export const PayLightningInvoice = gql`
     }
   }
 `;
+
+export const PayNetworkSwap = gql`
+  mutation PayNetworkSwap($swapInput: PayNetworkSwap!, $payInput: PayInput!) {
+    pay(input: $payInput) {
+      network_swap(input: $swapInput) {
+        wallet_account {
+          id
+          descriptor
+        }
+        base_64
+      }
+    }
+  }
+`;
+
+export const GetPaySwapQuote = gql`
+  mutation GetPaySwapQuote($input: PayInput!, $swapInput: SwapQuoteInput!) {
+    pay(input: $input) {
+      network_swap_quote(input: $swapInput) {
+        created_at
+        deposit_amount
+        deposit_coin
+        deposit_network
+        expires_at
+        id
+        rate
+        settle_amount
+        settle_coin
+        settle_network
+      }
+    }
+  }
+`;
